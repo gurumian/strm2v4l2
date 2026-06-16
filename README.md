@@ -45,7 +45,10 @@ To expose the RTSP stream as a virtual webcam:
 | Requirement | Purpose |
 |-------------|---------|
 | `v4l2loopback` kernel module | Creates `/dev/videoN` loopback devices |
-| `gstreamer1.0-plugins-good` | `v4l2sink` element |
+| `gstreamer1.0-plugins-good` | `v4l2sink` and `v4l2src` elements |
+| `v4l-utils` (optional) | `v4l2-ctl` to inspect loopback devices and formats |
+| `ffmpeg` (optional) | `ffplay` to preview the virtual camera |
+| `vlc` (optional) | GUI preview of the virtual camera |
 
 Load the module (adjust `video_nr` as needed):
 
@@ -128,7 +131,39 @@ gst-launch-1.0 -v \
 
 ## RTSP to V4L2
 
-After loading `v4l2loopback` (see [Prerequisites](#optional-rtsp-to-v4l2-testing)), pipe the RTSP stream into the virtual device:
+This section turns the RTSP stream into a virtual webcam at `/dev/video10`. You need **three terminals**: one for the RTSP server, one to feed the loopback device, and one to preview it.
+
+### Step 1 — Load the loopback module
+
+See [Optional: RTSP to V4L2 testing](#optional-rtsp-to-v4l2-testing) for `modprobe` options. Quick load:
+
+```bash
+sudo modprobe v4l2loopback \
+    devices=1 \
+    video_nr=10 \
+    card_label="RTSP Test Camera" \
+    exclusive_caps=1
+```
+
+Confirm the device exists:
+
+```bash
+v4l2-ctl --list-devices
+```
+
+(`v4l-utils` package provides `v4l2-ctl`.)
+
+### Step 2 — Start the RTSP server
+
+Terminal 1:
+
+```bash
+./build/file_rtsp_server "/path/to/your/video.mp4"
+```
+
+### Step 3 — Feed RTSP into the loopback device
+
+Terminal 2 — keep this running while you preview or use the virtual camera:
 
 ```bash
 gst-launch-1.0 -e \
@@ -142,7 +177,40 @@ gst-launch-1.0 -e \
     ! v4l2sink device=/dev/video10 sync=false
 ```
 
-Other applications can then open `/dev/video10` as a camera input.
+### Step 4 — Play the virtual loopback device
+
+Terminal 3 — preview `/dev/video10` like any V4L2 camera.
+
+**GStreamer** (uses packages already installed above):
+
+```bash
+gst-launch-1.0 -v \
+    v4l2src device=/dev/video10 \
+    ! videoconvert \
+    ! autovideosink
+```
+
+**FFmpeg** (`ffmpeg` package):
+
+```bash
+ffplay -f v4l2 -input_format yuyv422 /dev/video10
+```
+
+If playback fails, list supported formats and pick one that matches what `v4l2sink` writes (YUY2 / `yuyv422`):
+
+```bash
+v4l2-ctl -d /dev/video10 --list-formats-ext
+```
+
+**VLC** (`vlc` package):
+
+```bash
+vlc v4l2:///dev/video10
+```
+
+Or open VLC → **Media** → **Open Capture Device** → capture mode **Video camera**, device `/dev/video10`.
+
+Any application that accepts a V4L2 camera (OBS, browsers via PipeWire, etc.) can select **RTSP Test Camera** or `/dev/video10` while the RTSP-to-loopback pipeline in terminal 2 is running.
 
 ## Python alternative
 
