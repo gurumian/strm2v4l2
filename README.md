@@ -212,17 +212,12 @@ Or open VLC → **Media** → **Open Capture Device** → capture mode **Video c
 
 Any application that accepts a V4L2 camera (OBS, browsers via PipeWire, etc.) can select **RTSP Test Camera** or `/dev/video10` while the RTSP-to-loopback pipeline in terminal 2 is running.
 
-## Python alternative
-
-The repository also includes `file_rtsp_server.py`, a Python prototype that requires GObject introspection bindings (`python3-gi`, `gir1.2-gst-rtsp-server-1.0`). The C++ version is the recommended approach because it links directly against `libgstrtspserver` without Python dependencies.
-
 ## Project layout
 
 ```text
 strm2v4l2/
 ├── CMakeLists.txt
 ├── README.md
-├── file_rtsp_server.py
 └── src/
     └── file_rtsp_server.cpp
 ```
