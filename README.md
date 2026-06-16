@@ -129,6 +129,88 @@ gst-launch-1.0 -v \
     ! autovideosink
 ```
 
+### systemd (user service)
+
+The repository includes a **user** systemd unit that runs the same preview pipeline. Use a user service (not a system service) because `autovideosink` needs your graphical session (`DISPLAY` / Wayland).
+
+**Requirements**
+
+- The RTSP server must already be running (`./build/file_rtsp_server …`).
+- You must be logged into a desktop session (X11 or Wayland).
+- GStreamer runtime plugins from [Install dependencies](#install-dependencies-ubuntu--debian) must be installed.
+
+**Install**
+
+```bash
+mkdir -p ~/.config/systemd/user
+
+cp systemd/strm2v4l2-rtsp-preview.service ~/.config/systemd/user/
+
+systemctl --user daemon-reload
+systemctl --user enable --now strm2v4l2-rtsp-preview.service
+```
+
+**Control**
+
+```bash
+# Start / stop
+systemctl --user start strm2v4l2-rtsp-preview.service
+systemctl --user stop strm2v4l2-rtsp-preview.service
+
+# Status and logs
+systemctl --user status strm2v4l2-rtsp-preview.service
+journalctl --user -u strm2v4l2-rtsp-preview.service -f
+```
+
+**Disable at login**
+
+```bash
+systemctl --user disable strm2v4l2-rtsp-preview.service
+```
+
+**Display settings**
+
+The unit sets `DISPLAY=:0` for a typical X11 session. If the window does not appear, override the environment for your session:
+
+```bash
+systemctl --user edit strm2v4l2-rtsp-preview.service
+```
+
+Example for Wayland:
+
+```ini
+[Service]
+Environment=WAYLAND_DISPLAY=wayland-0
+Environment=DISPLAY=:0
+```
+
+Then reload and restart:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user restart strm2v4l2-rtsp-preview.service
+```
+
+On X11, find your display with `echo $DISPLAY` in a terminal and use that value instead of `:0`.
+
+**Automatic retry**
+
+The service is configured to restart whenever the pipeline exits:
+
+- `Restart=always` — retry after errors and after a normal exit (for example, when the video file ends).
+- `RestartSec=5` — wait 5 seconds between attempts.
+- `StartLimitIntervalSec=0` — no limit on how many times it may retry.
+
+If the RTSP server is not running yet, the preview keeps retrying every 5 seconds until the stream is available. Use `systemctl --user stop` to stop retries.
+
+If you already installed an older unit file, copy it again and reload:
+
+```bash
+cp systemd/strm2v4l2-rtsp-preview.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user restart strm2v4l2-rtsp-preview.service
+```
+
 ## RTSP to V4L2
 
 This section turns the RTSP stream into a virtual webcam at `/dev/video10`. You need **three terminals**: one for the RTSP server, one to feed the loopback device, and one to preview it.
@@ -218,6 +300,8 @@ Any application that accepts a V4L2 camera (OBS, browsers via PipeWire, etc.) ca
 strm2v4l2/
 ├── CMakeLists.txt
 ├── README.md
+├── systemd/
+│   └── strm2v4l2-rtsp-preview.service
 └── src/
     └── file_rtsp_server.cpp
 ```

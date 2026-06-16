@@ -1,0 +1,18 @@
+[Unit]
+Description=Preview strm2v4l2 RTSP stream (rtsp://127.0.0.1:8554/test)
+After=network-online.target graphical-session.target
+Wants=network-online.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/gst-launch-1.0 -v \
+    rtspsrc location=rtsp://127.0.0.1:8554/test protocols=tcp latency=100 ! \
+    rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=graphical-session.target
